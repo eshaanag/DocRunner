@@ -1,151 +1,119 @@
 # DocRunner Feature Flows
 
-## 1. GitHub Action Flow
+## End-to-End Pull Request Flow
 
-1. Maintainer adds DocRunner action to pull request workflow.
-2. Pull request opens or updates.
-3. GitHub checks out repository.
-4. Action runs `docrunner check`.
-5. CLI loads `docrunner.yml` or defaults.
-6. CLI discovers target markdown files.
-7. Parser extracts fenced blocks.
-8. Skip detector marks placeholder or manually skipped blocks.
-9. Runner executes remaining blocks in isolated temp directories.
-10. Results are aggregated.
-11. If failures exist and AI is configured, fix suggestions are requested.
-12. PR comment is posted or updated.
-13. Process exits 1 on failure or timeout, otherwise 0.
-14. Optional leaderboard payload is sent with aggregate counts only.
+1. A maintainer opts in by adding checkout and `uses: eshaanag/docrunner@v1`.
+2. A pull request triggers the Action with repository code and optional secrets.
+3. The Action installs a pinned DocRunner release and invokes `docrunner check`.
+4. The config loader reads `docrunner.yml` or applies documented defaults.
+5. File globs resolve to markdown files; unreadable or empty matches produce clear errors.
+6. The AST parser extracts supported fenced blocks, directives, headings, and locations.
+7. Skip detection classifies manual skips and strong placeholder/transcript heuristics.
+8. Executable blocks are dispatched to fresh language-specific subprocess workspaces.
+9. Results are classified as pass, fail, timeout, error, or skipped and aggregated.
+10. Failed blocks may receive cached Claude suggestions when explicitly enabled.
+11. The Action creates or updates one marker-tagged PR comment.
+12. `check` exits according to failures and `on_failure`.
+13. When leaderboard registration is enabled, aggregate counts are authenticated and sent.
+14. Badge requests reflect the last accepted aggregate run.
 
-## 2. Local `docrunner run` Flow
+## Skip Detection Flow
 
-1. User runs `docrunner run` or `docrunner run README.md`.
-2. CLI loads config and validates it with Zod.
-3. CLI parses markdown and classifies blocks.
-4. CLI executes runnable blocks.
-5. Console reporter prints scannable table and failure detail.
-6. Command exits 0 even when snippets fail.
+For each supported block, apply the first matching rule and preserve that reason:
 
-`run` is exploratory. It should not punish local users for discovering failures.
-
-## 3. CI `docrunner check` Flow
-
-1. User or action runs `docrunner check`.
-2. Same parser and execution path as `run`.
-3. Results are printed.
-4. Command exits 1 if any block has `fail`, `timeout`, or `error`, unless config `on_failure: warn`.
-
-`check` is enforcement. It is the correct CI command.
-
-## 4. Skip Detection Flow
-
-1. Check for manual `<!-- docrunner: skip -->` directive immediately before the block.
-2. Check user-defined `skip_patterns`.
-3. Check strong placeholder patterns.
-4. Check transcript patterns.
-5. Check unsupported shebang.
-6. Check one-line URL-only block.
-7. If none match, mark executable.
+1. If immediately preceded by `<!-- docrunner: skip -->`, skip as `manual directive`.
+2. If a configured literal `skip_patterns` value occurs, skip with the matched pattern.
+3. If code contains `YOUR_API_KEY`, `YOUR_TOKEN`, `{YOUR_`, `<your-`, `<YOUR-`, or
+   `<placeholder>`, skip as a placeholder.
+4. If any trimmed line is exactly `...`, `# TODO`, or `# FIXME`, skip as incomplete.
+5. If every non-empty line begins with `$ `, skip as a shell transcript.
+6. If trimmed code begins with `>`, skip as output/blockquote transcript.
+7. If the only line is an HTTP(S) URL, skip as a reference link.
+8. If a shebang exists and is not `#!/bin/bash` or `#!/usr/bin/env python`, skip as an
+   unsupported runtime declaration.
+9. Otherwise, execute the block.
 
 Examples:
 
-```python
-client = Client("YOUR_API_KEY")
-```
+| Example | Classification | Reason |
+|---|---|---|
+| `client = Client("YOUR_API_KEY")` | skipped | placeholder `YOUR_API_KEY` |
+| `$ npm install` and `$ npm test` | skipped | shell transcript |
+| `curl https://example.test/health` | executable | valid Bash command |
+| `https://example.test/docs` | skipped | URL-only block |
+| Explicit skip before a runnable block | skipped | manual directive |
 
-Result: skipped, detected placeholder `YOUR_API_KEY`.
+## Setup Pairing Flow
 
-```bash
-$ npm install docrunner
-$ docrunner run
-```
+1. A `<!-- docrunner: setup -->` block is queued for the next non-setup block of the same
+   language.
+2. DocRunner creates one fresh workspace for the pair.
+3. Project-level setup runs first, then the paired setup block, then the test block.
+4. File side effects persist inside the pair; process memory does not.
+5. Setup failure produces an error tied to the target block and the test block does not run.
+6. The setup block is not counted as a test result.
+7. An unpaired setup block produces a warning.
 
-Result: skipped, shell transcript.
+## AI Fix Flow
 
-```python
-...
-```
+1. Trigger only for runtime `fail`, never pass, skip, timeout, or infrastructure error.
+2. Require `ai_suggestions: true` and `ANTHROPIC_API_KEY`.
+3. Hash block identity, code, and normalized error; return cached suggestion on a hit.
+4. Send file, section, language, line, failing code, bounded error, and bounded surrounding
+   README context to Claude. Do not send repository-wide contents.
+5. Request a one-sentence diagnosis, minimal corrected block, and optional requirement note.
+6. Validate and parse the response. Invalid responses are logged and omitted.
+7. Store cache entry and render the suggestion below the matching failure.
+8. If Claude is unavailable, continue reporting and state that AI suggestions are unavailable.
 
-Result: skipped, ellipsis placeholder.
+## Leaderboard Registration Flow
 
-```bash
-#!/bin/bash
-echo "ok"
-```
+1. Registration is opt-in through config or an explicit command.
+2. DocRunner refuses to register a private repository.
+3. The client sends owner, repo, stars, pass/fail/skip counts, and run timestamp only.
+4. The API authenticates the write, validates bounds, and upserts the repository and run.
+5. Badge color is computed from pass rate and never uses red.
+6. Public pages show aggregate counts, last checked time, stars, and history.
+7. Code, output, errors, paths, branches, actors, and secrets are never accepted or stored.
 
-Result: executable.
+## Local `docrunner run` Flow
 
-## 5. Setup Block Flow
+1. User runs `docrunner run [file]`.
+2. DocRunner loads config, applies a file override if supplied, and resolves markdown files.
+3. It parses, classifies, executes, and renders a scannable report.
+4. Failures include exact location, bounded stderr, timeout/setup guidance, and AI hint.
+5. `run` exits zero for exploration; `check` uses CI failure semantics.
+6. User fixes examples or adds explicit setup/skip configuration and reruns.
 
-1. Parser sees `<!-- docrunner: setup -->`.
-2. The following block is marked `isSetup`.
-3. Runner stores it as pending setup for the next non-setup block of the same language.
-4. Runner creates one temp directory for setup and target block.
-5. Project-level setup runs first if configured.
-6. Setup block runs and may write files.
-7. Target block runs in same temp directory.
-8. Setup block is excluded from final result counts.
-
-## 6. AI Fix Flow
-
-1. A block fails with a non-zero exit code.
-2. Config has `ai_suggestions: true`.
-3. `ANTHROPIC_API_KEY` exists.
-4. Cache key is computed from block ID, code hash, language, and stderr hash.
-5. On cache hit, cached suggestion is used.
-6. On cache miss, prompt is sent to Claude with `max_tokens: 512`.
-7. Response is parsed into `AISuggestion`.
-8. Suggestion is attached to the failure section in the PR comment or `suggest` output.
-
-If Claude is unavailable, DocRunner reports normal results and adds a short availability note. It must not fail the run because AI was unavailable.
-
-## 7. Leaderboard Registration Flow
-
-1. Maintainer opts in by enabling leaderboard reporting.
-2. CLI or action computes aggregate counts.
-3. Payload includes owner, repo, stars, pass count, fail count, skip count, and timestamp.
-4. Payload is signed or authorized with `LEADERBOARD_SECRET`.
-5. API validates payload with Zod.
-6. SQLite row is inserted or updated.
-7. Badge endpoint reflects latest aggregate state.
-
-No source code, output, file names, branches, or errors are sent.
-
-## 8. Badge Flow
-
-1. README requests `/api/badge/[owner]/[name]`.
-2. API looks up latest entry.
-3. If no entry exists, return `not registered` and color `lightgrey`.
-4. If entry exists, compute message as `passCount/total executable passing`.
-5. Return shields.io JSON.
-
-## 9. Crisis Flows
+## Crisis Flows
 
 ### GitHub API Rate Limited
 
-The action prints results to console, marks PR comment posting as failed with a clear warning, and exits according to snippet results. Future implementation can retry with backoff, but rate limiting must never hide snippet failures.
+Keep the check result, log the reset time, retry with bounded exponential backoff while the
+job remains viable, and write the full markdown report to job output if posting still fails.
+Never hide the actual snippet exit status.
 
 ### Claude API Unavailable
 
-DocRunner skips AI suggestions, reports all execution results, and records `aiSuggestion: null`.
+Do not retry aggressively. Render all deterministic results and add: "AI suggestions
+unavailable; add or verify `ANTHROPIC_API_KEY` and rerun." The check status is unchanged.
 
 ### Subprocess Timeout
 
-Runner kills the process tree, marks status `timeout`, captures available output, and prints timeout-specific guidance.
+Kill the process tree, classify `timeout` separately from `fail` and `error`, clean the
+workspace, and explain how to raise `timeout` or skip a service-dependent example.
 
 ### All Blocks Skipped
 
-Reporter warns:
+Exit zero with a warning: "0 blocks executed. Your README may have no executable examples
+or all were auto-skipped. Run with `--verbose` to see why." Never describe this as passing.
 
-```text
-0 blocks executed. Your README may have no executable examples or all were auto-skipped.
-Run `docrunner list --verbose` to see why.
-```
+### Runtime Missing
 
-### Missing Runtime
-
-Runner returns `error`, not `fail`, because the snippet did not run. The message names the missing runtime and how to install or configure it.
+Classify as `error`, name the missing executable and affected block, and provide the exact
+installation/setup action. Continue independent languages where possible.
 
 ### Malformed Config
 
-CLI fails before parsing snippets. It prints field-level validation errors and exits 1.
+Stop before execution, list every invalid field with its received value and expected shape,
+and preserve the original config file.

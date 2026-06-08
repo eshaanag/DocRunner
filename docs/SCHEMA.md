@@ -1,11 +1,11 @@
-# DocRunner Data Models and Config Schema
+# DocRunner Schemas
 
-## 1. TypeScript Models
+## TypeScript Data Models
 
 ```typescript
 export type SupportedLanguage = "python" | "javascript" | "typescript" | "bash";
-
 export type ExecutionStatus = "pass" | "fail" | "error" | "skipped" | "timeout";
+export type FailureMode = "error" | "warn";
 
 export interface ParsedBlock {
   id: string;
@@ -44,14 +44,12 @@ export interface DocRunnerConfig {
   setup: Partial<Record<SupportedLanguage, string>>;
   env: Record<string, string>;
   skip_patterns: string[];
-  on_failure: "error" | "warn";
+  on_failure: FailureMode;
   ai_suggestions: boolean;
-  leaderboard?: LeaderboardConfig;
-}
-
-export interface LeaderboardConfig {
-  enabled: boolean;
-  endpoint: string;
+  leaderboard?: {
+    enabled: boolean;
+    endpoint: string;
+  };
 }
 
 export interface PRComment {
@@ -71,96 +69,64 @@ export interface LeaderboardEntry {
   lastRunAt: string;
   badgeColor: "brightgreen" | "green" | "yellow" | "orange";
 }
-
-export interface JsonRunOutput {
-  version: 1;
-  files: string[];
-  summary: {
-    passed: number;
-    failed: number;
-    skipped: number;
-    timedOut: number;
-    errors: number;
-    durationMs: number;
-  };
-  blocks: ParsedBlock[];
-  results: ExecutionResult[];
-}
 ```
 
-## 2. Zod Schemas
+## Zod External Input Schemas
 
 ```typescript
-import { z } from "zod";
+const supportedLanguageSchema = z.enum(["python", "javascript", "typescript", "bash"]);
 
-export const supportedLanguageSchema = z.enum([
-  "python",
-  "javascript",
-  "typescript",
-  "bash",
-]);
-
-export const docRunnerConfigSchema = z.object({
-  version: z.literal(1),
+const docRunnerConfigSchema = z.object({
+  version: z.literal(1).default(1),
   files: z.array(z.string().min(1)).min(1).default(["README.md"]),
   languages: z.array(supportedLanguageSchema).optional(),
-  timeout: z.number().int().positive().max(300).default(10),
+  timeout: z.number().int().min(1).max(300).default(10),
   setup: z.record(supportedLanguageSchema, z.string()).default({}),
   env: z.record(z.string(), z.string()).default({}),
   skip_patterns: z.array(z.string().min(1)).default([]),
   on_failure: z.enum(["error", "warn"]).default("error"),
   ai_suggestions: z.boolean().default(false),
-  leaderboard: z
-    .object({
-      enabled: z.boolean().default(false),
-      endpoint: z.string().url().default("https://docrunner.dev/api/leaderboard"),
-    })
-    .optional(),
+  leaderboard: z.object({
+    enabled: z.boolean().default(false),
+    endpoint: z.string().url().default("https://docrunner.dev/api/leaderboard")
+  }).optional()
 });
 
-export const leaderboardPayloadSchema = z.object({
-  owner: z.string().min(1),
-  repo: z.string().min(1),
-  stars: z.number().int().nonnegative(),
-  passCount: z.number().int().nonnegative(),
-  failCount: z.number().int().nonnegative(),
-  skipCount: z.number().int().nonnegative(),
-  lastRunAt: z.string().datetime(),
-});
-
-export const githubActionInputSchema = z.object({
-  githubToken: z.string().optional(),
-  anthropicApiKey: z.string().optional(),
-  config: z.string().optional(),
-  files: z.string().optional(),
-  leaderboard: z.string().optional(),
+const leaderboardWriteSchema = z.object({
+  owner: z.string().regex(/^[A-Za-z0-9_.-]+$/),
+  repo: z.string().regex(/^[A-Za-z0-9_.-]+$/),
+  stars: z.number().int().min(0),
+  passCount: z.number().int().min(0),
+  failCount: z.number().int().min(0),
+  skipCount: z.number().int().min(0),
+  lastRunAt: z.string().datetime()
 });
 ```
 
-## 3. Pydantic Runner Models
+## Pydantic Models
 
 ```python
 from typing import Literal
 from pydantic import BaseModel, Field
 
 SupportedLanguage = Literal["python", "javascript", "typescript", "bash"]
-RunnerStatus = Literal["pass", "fail", "error", "timeout"]
+
+class RunnerConfig(BaseModel):
+    timeout: int = Field(default=10, ge=1, le=300)
+    env: dict[str, str] = Field(default_factory=dict)
+    setup: dict[SupportedLanguage, str] = Field(default_factory=dict)
 
 class RunnerBlock(BaseModel):
-    """Executable block payload passed to the runner."""
-
     id: str
+    file: str
     language: SupportedLanguage
     code: str
     start_line: int = Field(ge=1)
-    timeout: int = Field(gt=0, le=300)
-    env: dict[str, str] = Field(default_factory=dict)
+    is_setup: bool = False
 
 class RunnerResult(BaseModel):
-    """Execution result returned by the runner."""
-
     block_id: str
-    status: RunnerStatus
+    status: Literal["pass", "fail", "error", "timeout"]
     exit_code: int | None
     stdout: str
     stderr: str
@@ -168,182 +134,102 @@ class RunnerResult(BaseModel):
     error_message: str | None
 ```
 
-## 4. `docrunner.yml` Schema
-
-Full example:
+## `docrunner.yml`
 
 ```yaml
 version: 1
-
 files:
   - README.md
   - docs/**/*.md
-
 languages:
   - python
   - bash
   - javascript
-  - typescript
-
 timeout: 10
-
 setup:
   python: |
     pip install -r requirements.txt
   javascript: |
     npm install
-  typescript: |
-    npm install
-  bash: |
-    echo "setup complete"
-
 env:
   API_URL: "http://localhost:3000"
-
 skip_patterns:
   - "YOUR_"
   - "<placeholder>"
-
 on_failure: error
 ai_suggestions: true
-
 leaderboard:
   enabled: false
   endpoint: "https://docrunner.dev/api/leaderboard"
 ```
 
-Field table:
+Defaults:
 
-| Field | Type | Default | Required | Description |
-|---|---|---:|---|---|
-| `version` | literal `1` | none | yes | Config schema version. |
-| `files` | string array | `["README.md"]` | no | Markdown globs to scan. |
-| `languages` | language array | all supported | no | Languages to execute. |
-| `timeout` | integer seconds | `10` | no | Per-block timeout. |
-| `setup` | language to command map | `{}` | no | Commands run before blocks by language. |
-| `env` | string map | `{}` | no | Environment variables injected into executions. |
-| `skip_patterns` | string array | `[]` | no | Additional auto-skip patterns. |
-| `on_failure` | `error` or `warn` | `error` | no | CI exit behavior. |
-| `ai_suggestions` | boolean | `false` | no | Whether failures request AI suggestions. |
-| `leaderboard.enabled` | boolean | `false` | no | Whether to publish aggregate results. |
-| `leaderboard.endpoint` | URL | DocRunner endpoint | no | Leaderboard API endpoint. |
+| Field | Type | Default |
+|---|---|---|
+| `version` | literal `1` | `1` |
+| `files` | string[] | `["README.md"]` |
+| `languages` | supported language[] | all supported |
+| `timeout` | integer 1-300 | `10` |
+| `setup` | language-command map | `{}` |
+| `env` | string map | `{}` |
+| `skip_patterns` | string[] | `[]` |
+| `on_failure` | `error` or `warn` | `error` |
+| `ai_suggestions` | boolean | `false` |
+| `leaderboard.enabled` | boolean | `false` |
 
-## 5. GitHub Action Schema
-
-`action/action.yml` inputs:
+## GitHub Action Schema
 
 ```yaml
+name: DocRunner
+description: Test README code examples and optionally post PR comments.
 inputs:
   github-token:
-    description: "GitHub token used to post or update PR comments"
+    description: Token used to create or update a pull request comment.
     required: false
   anthropic-api-key:
-    description: "Anthropic API key used for optional AI fix suggestions"
+    description: Optional Claude API key for fix suggestions.
     required: false
   config:
-    description: "Path to docrunner.yml"
+    description: Path to docrunner.yml.
     required: false
-    default: "docrunner.yml"
-  files:
-    description: "Optional markdown file or glob override"
+    default: docrunner.yml
+  leaderboard-secret:
+    description: Shared secret for opt-in leaderboard writes.
     required: false
-  leaderboard:
-    description: "Whether to publish aggregate results to the leaderboard"
-    required: false
-    default: "false"
-```
-
-Outputs:
-
-```yaml
 outputs:
-  passed:
-    description: "Number of passing blocks"
-  failed:
-    description: "Number of failing blocks"
-  skipped:
-    description: "Number of skipped blocks"
-  timed-out:
-    description: "Number of timed out blocks"
-  errors:
-    description: "Number of runner errors"
+  summary:
+    description: Human-readable result summary.
+  json:
+    description: Machine-readable DocRunner result JSON.
 ```
 
-## 6. Leaderboard Database Schema
-
-SQLite:
+## SQLite Leaderboard Schema
 
 ```sql
-CREATE TABLE leaderboard_entries (
+CREATE TABLE repositories (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   owner TEXT NOT NULL,
   repo TEXT NOT NULL,
   stars INTEGER NOT NULL DEFAULT 0,
-  pass_count INTEGER NOT NULL DEFAULT 0,
-  fail_count INTEGER NOT NULL DEFAULT 0,
-  skip_count INTEGER NOT NULL DEFAULT 0,
-  last_run_at TEXT NOT NULL,
-  badge_color TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (owner, repo)
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE(owner, repo)
 );
 
-CREATE INDEX idx_leaderboard_sort
-ON leaderboard_entries (pass_count DESC, stars DESC, last_run_at DESC);
+CREATE TABLE runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  repository_id INTEGER NOT NULL REFERENCES repositories(id) ON DELETE CASCADE,
+  pass_count INTEGER NOT NULL,
+  fail_count INTEGER NOT NULL,
+  skip_count INTEGER NOT NULL,
+  pass_rate REAL NOT NULL,
+  badge_color TEXT NOT NULL,
+  run_at TEXT NOT NULL
+);
 ```
 
-Badge color is precomputed from pass rate:
-
-```text
-100 percent pass -> brightgreen
-80 to 99 percent -> green
-60 to 79 percent -> yellow
-below 60 percent -> orange
-```
-
-## 7. JSON Output for `--json`
-
-```json
-{
-  "version": 1,
-  "files": ["README.md"],
-  "summary": {
-    "passed": 2,
-    "failed": 1,
-    "skipped": 1,
-    "timedOut": 0,
-    "errors": 0,
-    "durationMs": 880
-  },
-  "blocks": [
-    {
-      "id": "README-23-python-a1b2",
-      "file": "README.md",
-      "language": "python",
-      "code": "client.get('/endpoint')",
-      "startLine": 23,
-      "heading": "Quick Start",
-      "name": null,
-      "isSetup": false,
-      "skipReason": null
-    }
-  ],
-  "results": [
-    {
-      "blockId": "README-23-python-a1b2",
-      "status": "fail",
-      "exitCode": 1,
-      "stdout": "",
-      "stderr": "NameError: name 'client' is not defined",
-      "durationMs": 823,
-      "skipReason": null,
-      "errorMessage": null
-    }
-  ]
-}
-```
-
-## 8. AI Fix Suggestion Prompt
+## AI Prompt Template
 
 ~~~text
 You are a code documentation assistant helping fix a broken README code example.
@@ -387,3 +273,38 @@ FIXED_CODE:
 ```
 NOTE: <optional one-line note about requirements, or empty>
 ~~~
+
+## JSON Output
+
+```json
+{
+  "schemaVersion": 1,
+  "files": ["README.md"],
+  "summary": {
+    "passed": 3,
+    "failed": 1,
+    "skipped": 2,
+    "timeout": 0,
+    "error": 0,
+    "durationMs": 912
+  },
+  "results": [
+    {
+      "blockId": "readme-23-python-abc123",
+      "file": "README.md",
+      "heading": "Quick Start",
+      "name": null,
+      "language": "python",
+      "line": 23,
+      "status": "fail",
+      "exitCode": 1,
+      "stdout": "",
+      "stderr": "NameError: name 'client' is not defined",
+      "durationMs": 823,
+      "skipReason": null,
+      "errorMessage": null,
+      "aiSuggestion": null
+    }
+  ]
+}
+```

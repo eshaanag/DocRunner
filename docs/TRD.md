@@ -1,184 +1,155 @@
-# DocRunner Technical Requirements Document
+# DocRunner Technical Requirements
 
-## 1. System Overview
+## System Architecture
 
-DocRunner has four main surfaces:
+DocRunner has four deployable surfaces:
 
-- CLI package: parses markdown, executes snippets, reports results, and powers the GitHub Action.
-- GitHub Action: runs DocRunner in CI and posts or updates PR comments.
-- Dashboard package: serves the public leaderboard, badge endpoint, and repo detail pages.
-- Execution layer: runs Python, JavaScript, TypeScript, and Bash snippets in isolated subprocesses.
+- CLI package: TypeScript command surface, config validation, markdown parsing, execution
+  dispatch, reporting, AI suggestions, and leaderboard publishing.
+- GitHub Action: Docker-based wrapper that runs the CLI in a consistent CI image and posts
+  idempotent PR comments.
+- Dashboard: Next.js leaderboard, repository detail pages, badge endpoint, and aggregate
+  registration API.
+- Python runner module: typed subprocess helpers and validation models for future deeper
+  language execution isolation.
 
-The CLI is the source of truth for parsing, config validation, result classification, reporters, and AI fix suggestions. The dashboard receives aggregate counts only.
-
-## 2. Architecture
-
-```text
-README.md / docs/**/*.md
+~~~text
+Markdown files + docrunner.yml
         |
         v
-Config loader + markdown parser
+Config loader (Zod) -> file resolver -> remark AST parser
         |
         v
-ParsedBlock[] -> skip detector -> executable blocks
+ParsedBlock[] -> directive parser -> skip detector -> execution plan
         |
-        v
-Language dispatcher
-        |
-        +--> Python subprocess
-        +--> Node.js subprocess
-        +--> Bash subprocess
+        +--> skipped result
+        +--> python subprocess
+        +--> node subprocess
+        +--> bash subprocess
         +--> ts-node subprocess
         |
         v
-ExecutionResult[]
+ExecutionResult[] -> console/json/GitHub reporters
         |
-        +--> Console reporter
-        +--> JSON reporter
-        +--> GitHub PR formatter
-        +--> AI fix suggester on failures
-        +--> Leaderboard aggregate payload
-```
+        +--> Claude fix suggestions for eligible failures
+        +--> aggregate leaderboard payload
+~~~
 
-## 3. Parser Requirements
+## Parser
 
-The parser must use `unified` and `remark-parse`. It must not parse markdown code fences with regular expressions.
+The parser uses `unified` and `remark-parse` with position metadata. Regex is allowed only
+inside a fenced block after the AST has already identified code nodes.
 
-For each markdown file, it returns `ParsedBlock[]`:
+For each markdown file:
 
-- Fenced code blocks only.
-- Supported languages only unless `list` mode requests all known blocks.
-- Language aliases normalized.
-- Heading is nearest preceding h1, h2, or h3.
-- Name override comes from `<!-- docrunner: name="..." -->` immediately before a block.
-- Setup marker comes from `<!-- docrunner: setup -->` immediately before a block.
-- Skip marker comes from `<!-- docrunner: skip -->` immediately before a block.
-- Start line is source line from markdown position metadata.
-- ID is deterministic hash of file path, start line, normalized language, and code hash.
+1. Parse the file into mdast.
+2. Walk top-level and nested nodes in source order.
+3. Track nearest preceding h1, h2, or h3 text.
+4. Track immediately preceding HTML directives:
+   - `<!-- docrunner: skip -->`
+   - `<!-- docrunner: setup -->`
+   - `<!-- docrunner: name="Quick Start" -->`
+5. For each `code` node, normalize the language and ignore unsupported languages unless
+   listing all blocks.
+6. Compute `startLine` from `node.position.start.line`.
+7. Compute deterministic `id` from normalized file path, line, language, and code hash.
+8. Apply manual skip first, then heuristic skip detection.
+9. Return `ParsedBlock[]` with heading, optional name, setup flag, and skip reason.
 
-## 4. Language Normalization
+Language aliases:
 
-```text
-python, python3, py -> python
-javascript, js, node -> javascript
-typescript, ts -> typescript
-bash, sh, shell -> bash
-```
+| Input | Normalized |
+|---|---|
+| `python`, `python3`, `py` | `python` |
+| `javascript`, `js`, `node` | `javascript` |
+| `typescript`, `ts` | `typescript` |
+| `bash`, `sh`, `shell` | `bash` |
 
-Unsupported languages are ignored by `run` and `check` unless future config enables strict unsupported-language reporting.
+## Skip System
 
-## 5. Skip Detection
+Manual skip has highest priority. Built-in heuristic skips are visible and reversible.
 
-The skip detector runs before execution. It produces a clear `skipReason`.
+Auto-skip patterns:
 
-Built-in auto-skip patterns:
+- `YOUR_API_KEY`, `YOUR_TOKEN`, `{YOUR_`, `<your-`, `<YOUR-`, `<placeholder>`.
+- A trimmed line that is exactly `...`.
+- A trimmed line that is exactly `# TODO` or `# FIXME`.
+- Every non-empty line starts with `$ `.
+- Trimmed block starts with `>`.
+- Single-line block is only an HTTP(S) URL.
+- First line shebang is neither `#!/bin/bash` nor `#!/usr/bin/env python`.
+- Any user-defined literal `skip_patterns` value appears in the block.
 
-- Contains `YOUR_API_KEY`, `YOUR_TOKEN`, `{YOUR_`, `<your-`, or `<YOUR-`.
-- Contains `<placeholder>` or common placeholder syntax.
-- Contains a line where trimmed content is exactly `...`.
-- Contains a line where trimmed content is exactly `# TODO` or `# FIXME`.
-- Every non-empty line starts with `$ `, indicating a shell transcript.
-- Starts with `>`, indicating blockquote-style output.
-- One-line block contains only a URL.
-- Contains a shebang other than `#!/bin/bash` or `#!/usr/bin/env python`.
-- Matches user-defined `skip_patterns`.
+Skip confidence is recorded internally:
 
-Manual skip has highest priority and uses reason `manual skip directive`.
+- High: manual directive, strong placeholder, configured pattern.
+- Medium: ellipsis, TODO/FIXME, unsupported shebang.
+- Low: transcript or URL-only heuristics.
 
-## 6. Result Scoring Algorithm
+Confidence affects messaging and future analysis only; skipped blocks are never failures.
 
-Each block receives one of five statuses:
+## Execution Runner
 
-- `pass`: process exits with code 0.
-- `fail`: process exits with non-zero code before timeout.
-- `timeout`: process exceeds configured timeout and is killed.
-- `error`: DocRunner could not start or manage the process.
-- `skipped`: block was not executed due to directive or heuristic.
-
-Confidence:
-
-- High: manual skip, pass, fail with captured stderr, timeout.
-- Medium: auto-skip by strong placeholder pattern.
-- Low: auto-skip by weak heuristic such as transcript detection.
-
-Confidence is used internally for messaging and future analytics, not for changing pass/fail behavior.
-
-## 7. Execution Isolation
-
-Every executable block runs in a fresh temporary directory unless it is paired with a setup block. The temp directory is removed in a `finally` path after execution.
+Each executable block runs in a fresh temporary directory. A setup block and its following
+target block share one temporary directory so file side effects persist only within that
+pair. The directory is removed in `finally` even after failure or timeout.
 
 Environment:
 
 - Always set `DOCRUNNER=1`.
-- Set `HOME=/tmp`.
-- Set a minimal `PATH` sufficient for Python, Node, Bash, and ts-node.
-- Add `config.env` keys.
-- Do not pass through the host environment wholesale.
+- Always set `HOME=/tmp`.
+- Set a minimal `PATH` that can locate required runtimes.
+- Add only keys from `config.env`.
+- Never pass through the host environment wholesale.
 
 Timeout:
 
-- Default is 10 seconds.
-- Configurable through `docrunner.yml`.
-- Timeout kills the process tree where supported.
-- Timeout reports `timeout`, not `fail`.
+- Default 10 seconds, max 300 seconds.
+- Kill the process tree where supported.
+- Classify as `timeout`, not `fail`.
+- Message includes the block location and config guidance.
 
-## 8. Language Runners
+Language behavior:
 
-### Python
+| Language | File | Command | Notes |
+|---|---|---|---|
+| Python | `script.py` | `python3 script.py` | Missing runtime is `error`. |
+| JavaScript | `script.js` or `script.mjs` | `node script.*` | Use `.mjs` for import/export syntax. |
+| Bash | `script.sh` | `bash -e script.sh` | Fail fast on command errors. |
+| TypeScript | `script.ts` | `ts-node --transpile-only script.ts` | Missing ts-node explains install command. |
 
-Write code to `script.py`, run `python3 script.py`, capture stdout, stderr, exit code, duration, and timeout. If `python3` is missing, return `error` with a helpful message.
+## Result Scoring Algorithm
 
-### JavaScript
+| Status | Meaning | Blocks CI? |
+|---|---|---|
+| `pass` | Process exited 0 | No |
+| `fail` | Process exited non-zero | Yes unless `on_failure: warn` |
+| `timeout` | Process exceeded timeout and was killed | Yes unless `on_failure: warn` |
+| `error` | DocRunner could not start/manage execution | Yes unless `on_failure: warn` |
+| `skipped` | Manual or heuristic skip | No |
 
-Write code to `script.js` or `script.mjs`. Use `.mjs` when import/export syntax appears. Run through `node`. If ESM code needs `require`, inject a compatible `createRequire` shim only when safe and necessary.
+All results include duration, stdout, stderr, exit code where available, skip reason, and
+error message where applicable. Setup blocks are not reported as standalone test results.
 
-### Bash
+## GitHub Action
 
-Write code to `script.sh`. Run `bash -e script.sh`. Do not run as root. Treat non-zero command exits as `fail`.
+The Docker Action contains Node.js, Python 3, Bash, TypeScript, and ts-node. It runs
+`docrunner check` after checkout. Inputs:
 
-### TypeScript
+- `github-token`: optional token for PR comments.
+- `anthropic-api-key`: optional key for AI suggestions.
+- `config`: optional config path.
+- `leaderboard-secret`: optional aggregate publishing secret.
 
-Write code to `script.ts`. Run `ts-node --transpile-only script.ts`. Missing `ts-node` returns an `error` explaining how to install `ts-node` and `typescript`.
+Comment posting requires `pull-requests: write`. The formatter embeds a hidden marker so
+reruns update one existing comment. If no token is present, the Action prints the report and
+exits using normal `check` semantics.
 
-## 9. Setup Blocks
+## AI Fix Suggestion Pipeline
 
-A block marked `<!-- docrunner: setup -->` is infrastructure, not a reported test. It runs before the next non-setup block of the same language. File side effects persist into that next block's temp directory. Runtime variables do not persist across separate processes unless setup writes files or config commands create state.
-
-Project-level setup commands in config run before each block for the matching language in that block's temp directory.
-
-## 10. GitHub Action Integration
-
-The action runs `docrunner check`. It exits 0 when all blocks pass or are skipped and exits 1 when any block fails or times out. With `github-token`, it posts an idempotent PR comment by searching for an existing DocRunner marker and updating it.
-
-Permissions needed:
-
-- `contents: read`
-- `pull-requests: write` for PR comments
-
-When no token exists, the action still runs and prints console output.
-
-## 11. AI Fix Suggestion Pipeline
-
-Trigger only when:
-
-- A block has status `fail`.
-- `ai_suggestions` is true.
-- `ANTHROPIC_API_KEY` is set.
-- Cache miss for the failure hash.
-
-Prompt input:
-
-- File path.
-- Section/name.
-- Language.
-- Line.
-- Failing code.
-- Stderr.
-- Surrounding README context.
-
-Never send skipped blocks. Automated tests must use a mock.
-
-Prompt template:
+Trigger only for `fail` when `ai_suggestions: true`, `ANTHROPIC_API_KEY` exists, and the
+failure hash misses cache. The request includes only the failing block, bounded stderr, and
+bounded surrounding README context.
 
 ~~~text
 You are a code documentation assistant helping fix a broken README code example.
@@ -223,37 +194,59 @@ FIXED_CODE:
 NOTE: <optional one-line note about requirements, or empty>
 ~~~
 
-## 12. Leaderboard API
+Automated tests always use mocks and never call Claude.
 
-The leaderboard receives aggregate run data:
+## Leaderboard API
 
-- Owner.
-- Repo name.
-- Stars.
-- Pass count.
-- Fail count.
-- Skip count.
-- Last run timestamp.
-- Badge color.
+Collected:
 
-It never stores:
+- owner, repo, stars.
+- pass, fail, skip counts.
+- last run ISO timestamp.
+- computed badge color and pass rate.
 
-- Code.
-- Output.
-- Error text.
-- File names.
-- Branch names.
-- Private repo data.
+Never collected:
 
-Writes require `LEADERBOARD_SECRET`. Reads are public.
+- code, output, errors, file names, branch names, private repo data, usernames, secrets.
 
-## 13. Core Interfaces
+Writes are authenticated by `LEADERBOARD_SECRET`, validated with Zod, and stored in SQLite.
+
+## Config Schema
+
+```yaml
+version: 1
+files:
+  - README.md
+languages:
+  - python
+timeout: 10
+setup:
+  python: |
+    pip install -r requirements.txt
+env:
+  API_URL: "http://localhost:3000"
+skip_patterns:
+  - "YOUR_"
+on_failure: error
+ai_suggestions: true
+leaderboard:
+  enabled: false
+  endpoint: "https://docrunner.dev/api/leaderboard"
+```
+
+Validation rejects unsupported languages, timeout outside 1-300, non-string environment
+values, invalid URLs, unknown failure modes, and empty file patterns.
+
+## TypeScript Contracts
 
 ```typescript
-export interface ParsedBlock {
+type SupportedLanguage = "python" | "javascript" | "typescript" | "bash";
+type ExecutionStatus = "pass" | "fail" | "error" | "skipped" | "timeout";
+
+interface ParsedBlock {
   id: string;
   file: string;
-  language: "python" | "javascript" | "typescript" | "bash";
+  language: SupportedLanguage;
   code: string;
   startLine: number;
   heading: string | null;
@@ -262,9 +255,9 @@ export interface ParsedBlock {
   skipReason: string | null;
 }
 
-export interface ExecutionResult {
+interface ExecutionResult {
   blockId: string;
-  status: "pass" | "fail" | "error" | "skipped" | "timeout";
+  status: ExecutionStatus;
   exitCode: number | null;
   stdout: string;
   stderr: string;
@@ -273,25 +266,26 @@ export interface ExecutionResult {
   errorMessage: string | null;
 }
 
-export interface DocRunnerConfig {
+interface DocRunnerConfig {
   version: 1;
   files: string[];
-  languages?: Array<"python" | "javascript" | "typescript" | "bash">;
+  languages?: SupportedLanguage[];
   timeout: number;
-  setup: Partial<Record<"python" | "javascript" | "typescript" | "bash", string>>;
+  setup: Partial<Record<SupportedLanguage, string>>;
   env: Record<string, string>;
   skip_patterns: string[];
   on_failure: "error" | "warn";
   ai_suggestions: boolean;
 }
 
-export interface AISuggestion {
-  diagnosis: string;
-  fixedCode: string;
-  note: string | null;
+interface PRComment {
+  summary: string;
+  markdown: string;
+  hasFailures: boolean;
+  aiSuggestionsIncluded: boolean;
 }
 
-export interface LeaderboardEntry {
+interface LeaderboardEntry {
   owner: string;
   repo: string;
   stars: number;
@@ -301,26 +295,19 @@ export interface LeaderboardEntry {
   lastRunAt: string;
   badgeColor: "brightgreen" | "green" | "yellow" | "orange";
 }
-
-export interface PRComment {
-  summary: string;
-  markdown: string;
-  hasFailures: boolean;
-}
 ```
 
-## 14. Pydantic Models
+## Pydantic Runner Models
 
 ```python
-from pydantic import BaseModel, Field
-from typing import Literal
-
 class RunnerBlock(BaseModel):
     id: str
     language: Literal["python", "javascript", "typescript", "bash"]
     code: str
-    start_line: int = Field(ge=1)
-    timeout: int = Field(gt=0, le=300)
+    file: str
+    start_line: int
+    timeout: int
+    env: dict[str, str]
 
 class RunnerResult(BaseModel):
     block_id: str
@@ -331,21 +318,3 @@ class RunnerResult(BaseModel):
     duration_ms: int
     error_message: str | None
 ```
-
-## 15. Config Schema
-
-`docrunner.yml` defaults:
-
-```yaml
-version: 1
-files:
-  - README.md
-timeout: 10
-setup: {}
-env: {}
-skip_patterns: []
-on_failure: error
-ai_suggestions: false
-```
-
-Full schema is defined in `docs/SCHEMA.md` and implemented with Zod.

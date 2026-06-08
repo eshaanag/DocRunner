@@ -1,122 +1,107 @@
-# DocRunner Developer Experience Spec
+# DocRunner Developer Experience
 
-## 1. DX Philosophy
+## Philosophy
 
-DocRunner must be useful before it is configured. A maintainer should install it, run one command, and immediately understand which README examples are runnable, skipped, passing, or broken.
+DocRunner should feel like a mature test tool, not another bot. The first local run must
+require no API key, no annotations, and no account. Configuration exists for the cases where
+README examples are contextual, not to make the common path work.
 
-The experience should feel like a focused test runner: quiet when healthy, precise when broken, and never surprising about what it executed.
+Principles:
 
-## 2. CLI Commands
+- Zero friction to try: `npm install -g docrunner`, then `docrunner run`.
+- Low friction to configure: `docrunner init` generates sensible defaults.
+- High value immediately: exact section, line, language, stderr, and next action.
+- No surprise execution: `docrunner list` previews every block and skip reason.
+- No shame UI: skipped examples are normal, visible, and non-alarming.
 
-```text
-docrunner run [file]          Run checks, show results, exit 0 always
-docrunner check [file]        Run checks, exit 1 on failure for CI
-docrunner init                Create docrunner.yml with smart defaults
-docrunner suggest <file:line> Get AI fix for a specific failing block
-docrunner list [file]         List detected blocks without running them
-docrunner --version           Print version
-docrunner --help              Print help
-```
+## CLI Output
 
-## 3. `docrunner run` Output
-
-The output should be dense, aligned, and screenshot-worthy.
+Console output is compact, aligned, and quiet. It uses color when TTY supports it and plain
+symbols otherwise.
 
 ```text
-docrunner v0.1.0  .  README.md
+docrunner v0.1.0  ·  README.md
 
-  PASS  "Installation"        bash        line 8      12ms
-  PASS  "Authentication"      javascript  line 41     45ms
-  FAIL  "Quick Start"         python      line 23    823ms
-  SKIP  "Advanced Config"     python      line 67     placeholder detected
+  ✓  "Installation"      bash        line 8      12ms
+  ✓  "Authentication"    javascript  line 41     45ms
+  ✗  "Quick Start"       python      line 23    823ms
+  ⊘  "Advanced Config"   python      line 67    skipped (placeholder YOUR_API_KEY)
 
-  --------------------------------------------------
-  Results: 2 passed . 1 failed . 1 skipped
+  ─────────────────────────────────────────────
+  Results: 2 passed · 1 failed · 1 skipped
   Duration: 880ms
 
-  FAILED: "Quick Start" (python . README.md:23)
+  ✗ FAILED: "Quick Start" (python · README.md:23)
     NameError: name 'client' is not defined
 
     Hint: Run `docrunner suggest README.md:23` for an AI-generated fix.
+  ─────────────────────────────────────────────
 ```
 
-Color rules:
+States:
 
-- Pass: green.
-- Fail: red.
-- Timeout: yellow.
-- Error: red with explicit tool problem.
-- Skip: dim gray.
-- Duration: dim.
+- Success: summary only after rows.
+- Error: show config/runtime problem before per-block rows if execution cannot begin.
+- Edge: no files, no supported blocks, all skipped, missing runtime, timeout, and malformed
+  config all produce distinct messages.
 
-## 4. `docrunner list` Output
+## Commands
 
-```text
-README.md
+| Command | Exit behavior | Purpose |
+|---|---|---|
+| `docrunner run [file]` | Always exits 0 unless DocRunner itself cannot run | Local exploration |
+| `docrunner check [file]` | Exits 1 on fail/timeout/error unless warn mode | CI |
+| `docrunner init` | Exits 0 when config created, error when overwrite refused | First setup |
+| `docrunner list [file]` | Exits 0 after detection preview | Debug false positives |
+| `docrunner suggest <file:line>` | Exits 0 on suggestion, error on missing key/block | Targeted AI fix |
+| `docrunner --help` | Exits 0 | Command reference |
 
-  line 8    bash        "Installation"      executable
-  line 23   python      "Quick Start"       executable
-  line 67   python      "Advanced Config"   skipped: detected YOUR_API_KEY
-```
+## PR Comment Format
 
-This command is a trust builder. It lets maintainers see execution decisions before running code.
+The PR comment is a code review artifact and a screenshot surface.
 
-## 5. `docrunner init` Experience
-
-The command scans configured or default markdown files, counts blocks by language, and writes a conservative config.
-
-```text
-Found 12 code blocks across 3 markdown files.
-Languages: python 4, bash 6, javascript 2.
-Created docrunner.yml.
-Run `docrunner run` to test your examples.
-```
-
-If `docrunner.yml` already exists, the command refuses to overwrite unless `--force` is provided.
-
-## 6. PR Comment Format
-
-```markdown
-## DocRunner Results
+~~~markdown
+## 🔍 DocRunner Results
 
 | Status | Section | Language | Line |
 |--------|---------|----------|------|
-| Pass | Installation | `bash` | 8 |
-| Pass | Authentication | `javascript` | 41 |
-| Fail | Quick Start | `python` | 23 |
-| Skip | Advanced Config | `python` | 67 |
+| ✅ Pass | Installation | `bash` | 8 |
+| ✅ Pass | Authentication | `javascript` | 41 |
+| ❌ Fail | Quick Start | `python` | 23 |
+| ⏭️ Skip | Advanced Config | `python` | 67 |
 
-**2 passed . 1 failed . 1 skipped**
+**2 passed · 1 failed · 1 skipped**
 
 ---
 
-### Quick Start - `python` . line 23
+### ❌ Quick Start — `python` · line 23
 
 ```
 NameError: name 'client' is not defined
 ```
 
-**Suggested fix** (via Claude):
+**💡 Suggested fix** (via Claude):
 
 The `client` variable is used before it is defined.
 
 ```python
 from mylib import Client
 
-client = Client(api_key="YOUR_API_KEY")  # Defines client before use.
+client = Client(api_key="YOUR_API_KEY")  # Added before first use.
 response = client.get("/endpoint")
 print(response)
 ```
 
 ---
-<sub>Powered by [DocRunner](https://docrunner.dev) . [Add badge](https://docrunner.dev/badge) . [View leaderboard](https://docrunner.dev)</sub>
-```
+<sub>Powered by [DocRunner](https://docrunner.dev) · [Add badge](https://docrunner.dev/badge) · [View leaderboard](https://docrunner.dev)</sub>
+~~~
 
-The real implementation may use status icons in comments, but the markdown must remain readable without color.
+If AI is unavailable, the failed section remains and includes: "AI suggestions unavailable;
+add `ANTHROPIC_API_KEY` to use this feature."
 
-## 7. Badge Design
+## Badge Design
 
-Shields endpoint:
+DocRunner uses the shields.io endpoint contract:
 
 ```json
 {
@@ -127,23 +112,17 @@ Shields endpoint:
 }
 ```
 
-README snippet:
+Colors:
 
-```markdown
-[![docs tested](https://docrunner.dev/api/badge/OWNER/REPO)](https://docrunner.dev/repo/OWNER/REPO)
-```
+- `brightgreen`: all executed blocks pass.
+- `green`: pass rate 80-99%.
+- `yellow`: pass rate 60-79%.
+- `orange`: pass rate below 60%.
+- Never `red`; red encourages badge removal instead of documentation improvement.
 
-Color logic:
+## Config UX
 
-- 100 percent passing: `brightgreen`.
-- 80 to 99 percent: `green`.
-- 60 to 79 percent: `yellow`.
-- Below 60 percent: `orange`.
-- Never use red for public badges.
-
-## 8. Config UX
-
-Default config:
+Defaults work for a repository with `README.md` and common runnable examples:
 
 ```yaml
 version: 1
@@ -154,80 +133,51 @@ on_failure: error
 ai_suggestions: false
 ```
 
-Malformed config errors should name the field, expected type, received value, and fix.
+Helpful config errors:
 
-Example:
+- `timeout: expected an integer from 1 to 300 seconds, received "forever".`
+- `languages[1]: "php" is not supported in v1. Supported: python, javascript, typescript, bash.`
+- `env.API_KEY: expected string; use quotes for numeric-looking values.`
+- `files: provide at least one markdown glob, for example "README.md".`
 
-```text
-docrunner.yml: timeout must be a positive number of seconds.
-Received: "ten"
-Fix: set timeout: 10
-```
+## Leaderboard UX
 
-## 9. Error Message Catalog
+The leaderboard is minimal and work-focused:
 
-Python runtime failure:
+- Headline: "These projects test their documentation."
+- Table: repository, stars, pass rate, passed/failed/skipped counts, last checked, badge.
+- Sorting: pass rate descending, then stars descending.
+- Repo page: latest status, run history, badge snippet, privacy statement.
+- Empty state: explain opt-in registration and show setup.
 
-```text
-Python block at README.md:23 ("Quick Start") raised NameError: name 'client' is not defined.
-```
+No code snippets, errors, file names, or branch names appear on public pages.
 
-Timeout:
+## Error Message Catalog
 
-```text
-Python block at README.md:23 ("Quick Start") timed out after 10s.
-If this example needs more time, set `timeout: 30` in docrunner.yml.
-If it depends on a live service, add `<!-- docrunner: skip -->`.
-```
+| Situation | Message |
+|---|---|
+| Missing config | `No docrunner.yml found; using defaults for README.md.` |
+| Malformed config | `Invalid docrunner.yml: timeout must be an integer from 1 to 300 seconds.` |
+| No files | `No markdown files matched: README.md, docs/**/*.md.` |
+| No blocks | `No supported code blocks found. Use docrunner list --all to inspect ignored languages.` |
+| All skipped | `0 blocks executed. Your README may have no executable examples or all were auto-skipped. Run with --verbose to see why.` |
+| Runtime failure | `Python block at README.md:23 ("Quick Start") raised NameError: name 'client' is not defined.` |
+| Timeout | `Python block at README.md:23 ("Quick Start") timed out after 10s. Increase timeout or skip service-dependent examples.` |
+| Missing ts-node | `TypeScript blocks require ts-node. Add it to setup: npm install -g ts-node typescript.` |
+| Claude missing | `AI suggestions unavailable: ANTHROPIC_API_KEY is not set.` |
+| Rate limit | `GitHub comment update was rate limited; results are printed below and will be retried when possible.` |
 
-Missing tool:
+## Onboarding Timeline
 
-```text
-TypeScript blocks require ts-node.
-Install it with `npm install -g ts-node typescript` or add setup in docrunner.yml.
-```
+Target: under 3 minutes for a standard Node.js project.
 
-All skipped:
+1. 20s: install CLI.
+2. 20s: run `docrunner list`.
+3. 30s: run `docrunner init`.
+4. 30s: inspect generated config.
+5. 30s: run `docrunner run`.
+6. 30s: add two Action lines.
+7. Remaining buffer: fix one setup/skip issue.
 
-```text
-0 blocks executed. Your README may have no runnable examples or all examples were skipped.
-Run `docrunner list --verbose` to see why.
-```
-
-Malformed config:
-
-```text
-docrunner.yml: languages[0] must be one of python, javascript, typescript, bash.
-Received: "php"
-```
-
-AI unavailable:
-
-```text
-AI suggestions unavailable. Set ANTHROPIC_API_KEY to enable suggested fixes.
-```
-
-## 10. Leaderboard UX
-
-The leaderboard is a utility page, not a marketing page. It shows:
-
-- Repository.
-- Stars.
-- Pass rate.
-- Passing, failing, skipped counts.
-- Last checked date.
-- Badge snippet.
-
-It must state the privacy boundary clearly: DocRunner stores aggregate counts only, never code or output.
-
-## 11. Onboarding Goal
-
-Target time from install to first useful result: under three minutes.
-
-Path:
-
-1. `npm install -g docrunner`
-2. `docrunner init`
-3. `docrunner list`
-4. `docrunner run`
-5. Add the GitHub Action if useful.
+The onboarding succeeds when a maintainer understands what executed, what skipped, and what
+will happen in CI without reading long docs.

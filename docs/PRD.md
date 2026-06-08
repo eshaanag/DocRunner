@@ -1,133 +1,124 @@
-# DocRunner Product Requirements Document
+# DocRunner Product Requirements
 
-## 1. Product Summary
+## Product Statement
 
-DocRunner catches broken README code examples in CI with zero annotations required for the common case. It extracts fenced code blocks from markdown, skips examples that are clearly placeholders or transcripts, executes runnable snippets in isolated environments, reports results locally and in pull requests, and can suggest minimal fixes through Claude when failures occur.
+DocRunner makes README examples trustworthy by finding executable fenced code blocks,
+skipping examples that are clearly illustrative, running the rest in CI, and showing
+maintainers the exact failure with an optional minimal AI-generated fix.
 
-The product outcome is simple: maintainers should trust that the examples users copy from their README still run.
+## Problem
 
-## 2. Problem Statement
+README examples are often the first API surface a developer uses and the last surface a
+test suite covers. They drift when APIs, package names, setup steps, and defaults change.
+The result is repeated "your example does not work" issues, lost evaluator trust, and
+maintenance work that arrives after a release.
 
-README examples are often the first executable interface a developer sees. They also break easily because they live outside normal test suites. Common causes include renamed imports, missing setup steps, changed APIs, stale authentication examples, and snippets that assume hidden state.
+There is no defensible public baseline for how frequently popular README examples fail.
+DocRunner will measure it during Phase 8 by running against at least 50 popular Python and
+JavaScript repositories, publishing methodology and aggregate results in `docs/ANALYSIS.md`.
+The launch hypothesis is that more than 20% contain at least one runnable example that
+fails; the product remains useful even if the measured rate is lower.
 
-DocRunner will quantify the problem during Phase 8 by running against a defined set of popular Python and JavaScript repositories and publishing the results in `docs/ANALYSIS.md`. Until that data is gathered, the product assumes the highest-risk pattern: README examples drift because they are reviewed as prose while users execute them as code.
+## Users
 
-## 3. Target Users
+### Primary: Burnt-Out OSS Maintainer
 
-Primary users are open source maintainers who want fewer broken-example issues without adding annotations to every snippet.
+Maintains a 2,000-star library alongside a full-time job. They receive recurring issues
+about stale Quick Start examples and distrust tools that require annotating every block.
+They need a low-noise PR signal, a fast escape hatch, and no new service to operate.
 
-Secondary users are contributors who want a PR check that tells them whether their changes broke project docs.
+### Secondary: New Contributor
 
-Tertiary users are library evaluators who want a confidence signal that examples are current before adopting a dependency.
+Wants confidence that a PR changing an API or README will not embarrass the project.
+They need a local command with the same behavior as CI and errors that point to the
+specific section, line, and missing setup.
 
-## 4. Personas
+### Tertiary: Library Evaluator
 
-### Burnt-Out Maintainer
+Compares libraries under time pressure. They treat a broken first example as evidence
+that the project is neglected. They need a visible, current, privacy-respecting signal
+that examples execute.
 
-Maintains a 2,000-star library with a popular quick start. They receive repeated issues saying the example no longer works. They do not want another complex CI tool. They need a two-line action, clear failure output, and almost no false positives.
+## User Stories
 
-Success looks like: a PR comment points to the exact README section and line, explains the runtime failure, and offers a minimal corrected snippet.
+1. As a maintainer, I can add one Action step and test README examples on every PR.
+2. As a maintainer, I can try DocRunner locally without an API key.
+3. As a maintainer, I can preview every detected and skipped block before execution.
+4. As a maintainer, I can skip a contextual example with one adjacent directive.
+5. As a maintainer, I can define project-wide setup commands and environment values.
+6. As a maintainer, I can pair setup code with the next example.
+7. As a maintainer, I see why each block was skipped.
+8. As a maintainer, a failing PR receives one updated comment rather than repeated comments.
+9. As a maintainer, I receive a minimal suggested fix when Claude is configured.
+10. As a maintainer, basic checks still complete when Claude is unavailable.
+11. As a maintainer, I can choose whether failures block CI or only warn.
+12. As a contributor, I can run the same checks locally that CI runs.
+13. As a contributor, errors identify the file, section, language, line, and runtime error.
+14. As an automation author, I can consume stable JSON results.
+15. As a library evaluator, I can view a current "docs tested" badge.
+16. As a project owner, I can opt into a public aggregate-only leaderboard.
+17. As a private-repo owner, I can use DocRunner without sending data to the leaderboard.
+18. As a security-conscious maintainer, I can see exactly what environment reaches snippets.
 
-### New Contributor
+## Priorities
 
-Opens a PR that changes public API names. They know tests pass but do not realize the README still imports the old symbol. They need fast feedback before a maintainer has to review documentation breakage manually.
+### P0: Trustworthy Core
 
-Success looks like: the CI check fails with a precise README failure and a suggested fix they can apply before review.
+- Parse fenced Python, JavaScript, TypeScript, and Bash blocks without annotations.
+- Normalize aliases and attach source location and nearest heading.
+- Aggressively skip placeholders, transcripts, unsupported shebangs, and manual skips.
+- Execute snippets in isolated subprocess workspaces with timeout and minimal environment.
+- Provide `run`, `check`, `list`, and stable JSON output.
+- Produce actionable console and idempotent GitHub PR reports.
+- Validate `docrunner.yml` with field-specific errors.
 
-### Library Evaluator
+### P1: Differentiation and Distribution
 
-Compares two libraries and wants to know whether examples are trustworthy. They will not run a full test matrix. They need a lightweight visible signal.
+- Claude fix suggestions with cache, strict cost controls, and graceful fallback.
+- `docrunner init` with detected files and languages.
+- Docker GitHub Action.
+- Opt-in public leaderboard, repo page, and shields.io badge endpoint.
 
-Success looks like: a "docs tested" badge links to a public leaderboard entry showing recent passing documentation checks.
+### P2: Expansion
 
-## 5. User Stories
+- Ruby, Go, Rust, and Java execution.
+- Historical trend insights and richer repository filters.
+- Organization policy controls and hosted execution.
 
-1. As a maintainer, I can add DocRunner to CI with two workflow lines.
-2. As a maintainer, I can run `docrunner run` locally without API keys.
-3. As a maintainer, I can preview detected snippets with `docrunner list`.
-4. As a maintainer, I can skip a block with `<!-- docrunner: skip -->`.
-5. As a maintainer, I can define setup commands in `docrunner.yml`.
-6. As a maintainer, I can inject safe test environment variables.
-7. As a maintainer, I can see why a placeholder block was auto-skipped.
-8. As a contributor, I can see exact file, section, language, and line for failures.
-9. As a contributor, I can receive an AI-generated minimal fix when configured.
-10. As a CI user, I can make failures exit with status 1.
-11. As a local user, I can run checks without failing my shell command by default.
-12. As a project owner, I can publish a badge showing passing documentation snippets.
-13. As a leaderboard visitor, I can see pass rate, last checked date, and repo metadata.
-14. As a privacy-conscious maintainer, I can verify that code and output are not stored.
-15. As a tool integrator, I can request JSON output for automation.
-16. As a TypeScript project maintainer, I can execute TypeScript snippets through `ts-node`.
-17. As a shell-heavy project maintainer, I can distinguish shell scripts from command transcripts.
-18. As a project with private services, I can mark external-service examples as skipped.
+## Success Metrics
 
-## 6. Feature Priorities
+| Metric | 30-day target | 90-day target |
+|---|---:|---:|
+| Repositories running DocRunner | 50 | 250 |
+| Repositories displaying badge | 20 | 100 |
+| GitHub stars | 300 | 1,000 |
+| Median first-run setup time | under 3 minutes | under 2 minutes |
+| False-positive rate in measured real READMEs | below 15% | below 10% |
+| PR comments with actionable location | 100% | 100% |
 
-### P0
+## Non-Goals
 
-- Markdown fenced block parser using AST parsing.
-- Language normalization for Python, JavaScript, TypeScript, and Bash.
-- False-positive defense: auto-skip heuristics, skip directive, setup directive, config setup, env injection, and clear skip reasons.
-- Isolated execution with per-block timeouts.
-- Local CLI: `run`, `check`, `list`, `init`, `--help`, and `--version`.
-- Console reporter, JSON reporter, and GitHub PR formatter.
-- Claude-powered fix suggestions with caching and graceful fallback.
-- GitHub Action wrapper.
-- README and docs.
+- DocRunner does not verify that output is semantically correct; it verifies execution.
+- DocRunner does not replace unit, integration, security, or compatibility tests.
+- DocRunner does not lint prose, style, grammar, or API documentation completeness.
+- DocRunner v1 does not provide a hardened hostile-code sandbox. CI must treat repository
+  code as trusted to the same degree as existing test scripts.
+- The leaderboard never stores snippets, output, errors, file names, or branch names.
 
-### P1
+## False-Positive Contract
 
-- Public leaderboard with shields.io badge endpoint.
-- Repo detail pages with run history.
-- Idempotent GitHub PR comment updates.
-- Popular repo analysis script and launch data.
+False positives are the primary adoption risk. README blocks commonly require secrets,
+services, dependencies, or reader substitutions. DocRunner therefore defaults to caution:
 
-### P2
+- Strong placeholders and explicit directives become `skipped`, never `failed`.
+- Every skip includes a reason and is visible in `list`, console, JSON, and PR output.
+- Project setup, per-language setup, environment injection, and paired setup blocks cover
+  contextual examples without forcing them into the main test suite.
+- All-skipped runs warn rather than claim success.
+- Phase 8 measures behavior on real READMEs. A false-positive rate above 15% blocks launch.
 
-- Additional languages: Ruby, Go, Rust, and Java.
-- Richer setup caching.
-- Organization-level dashboards.
-- Maintainer notification preferences.
+## Release Acceptance
 
-## 7. Non-Goals
-
-DocRunner does not prove that output is semantically correct. It only verifies that examples execute without runtime failure.
-
-DocRunner does not replace a test suite, linter, type checker, or documentation review.
-
-DocRunner does not lint prose or judge whether the explanation around a snippet is accurate.
-
-DocRunner does not store source code, snippet output, branch names, file names, or private repo content in the leaderboard.
-
-## 8. Success Metrics
-
-- Repositories using the GitHub Action.
-- Public "docs tested" badges installed.
-- GitHub stars and forks.
-- First-run completion rate under three minutes.
-- Failure comments that lead to applied fixes.
-- Auto-skip precision measured on real README fixtures.
-- Leaderboard entries with recent successful runs.
-
-## 9. The False-Positive Problem
-
-README snippets are frequently illustrative. If DocRunner fails examples containing `YOUR_API_KEY`, service calls, transcripts, or pseudocode, maintainers will remove it.
-
-DocRunner treats false-positive prevention as P0:
-
-- Placeholder patterns are skipped before execution.
-- Shell transcripts are detected separately from shell scripts.
-- Maintainers get a one-line skip directive.
-- Setup directives allow examples to share intentionally prepared state.
-- Config setup and env injection support project-wide prerequisites.
-- The list command previews all decisions before execution.
-
-The launch analysis must measure false positives. If the false-positive rate on real READMEs is above 15%, Phase 8 is not complete.
-
-## 10. Product Principles
-
-- Zero friction for the first run.
-- Explicit control when heuristics are not enough.
-- Useful failure detail instead of generic errors.
-- Privacy-respecting public status.
-- AI suggestions only when they reduce maintainer work.
+The v1 release is acceptable when all P0 and P1 features pass their required tests,
+DocRunner passes against its own README, a real-repository analysis is published, the CLI
+is installable from npm, the Action is usable by version tag, and the leaderboard is live.
