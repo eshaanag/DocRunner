@@ -1,5 +1,7 @@
 # DocRunner
 
+[![docs tested](https://docrunner.dev/api/badge/eshaanag/DocRunner)](https://docrunner.dev/repo/eshaanag/DocRunner)
+
 DocRunner catches broken README code examples in CI with zero annotations required for the
 common case.
 

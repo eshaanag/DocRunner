@@ -1,0 +1,14 @@
+name: Test README Examples
+
+on:
+  pull_request:
+
+jobs:
+  docrunner:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./action
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

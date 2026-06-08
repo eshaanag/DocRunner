@@ -1,0 +1,23 @@
+version: 1
+
+files:
+  - README.md
+  - packages/cli/tests/fixtures/simple.md
+
+languages:
+  - bash
+  - python
+  - javascript
+
+timeout: 10
+
+setup: {}
+
+env: {}
+
+skip_patterns:
+  - "npm install -g docrunner"
+
+on_failure: error
+
+ai_suggestions: false
