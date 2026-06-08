@@ -74,7 +74,12 @@ export interface LeaderboardEntry {
 ## Zod External Input Schemas
 
 ```typescript
-const supportedLanguageSchema = z.enum(["python", "javascript", "typescript", "bash"]);
+const supportedLanguageSchema = z.enum([
+  "python",
+  "javascript",
+  "typescript",
+  "bash",
+]);
 
 const docRunnerConfigSchema = z.object({
   version: z.literal(1).default(1),
@@ -86,10 +91,15 @@ const docRunnerConfigSchema = z.object({
   skip_patterns: z.array(z.string().min(1)).default([]),
   on_failure: z.enum(["error", "warn"]).default("error"),
   ai_suggestions: z.boolean().default(false),
-  leaderboard: z.object({
-    enabled: z.boolean().default(false),
-    endpoint: z.string().url().default("https://docrunner.dev/api/leaderboard")
-  }).optional()
+  leaderboard: z
+    .object({
+      enabled: z.boolean().default(false),
+      endpoint: z
+        .string()
+        .url()
+        .default("https://docrunner.dev/api/leaderboard"),
+    })
+    .optional(),
 });
 
 const leaderboardWriteSchema = z.object({
@@ -99,7 +109,7 @@ const leaderboardWriteSchema = z.object({
   passCount: z.number().int().min(0),
   failCount: z.number().int().min(0),
   skipCount: z.number().int().min(0),
-  lastRunAt: z.string().datetime()
+  lastRunAt: z.string().datetime(),
 });
 ```
 
@@ -165,18 +175,18 @@ leaderboard:
 
 Defaults:
 
-| Field | Type | Default |
-|---|---|---|
-| `version` | literal `1` | `1` |
-| `files` | string[] | `["README.md"]` |
-| `languages` | supported language[] | all supported |
-| `timeout` | integer 1-300 | `10` |
-| `setup` | language-command map | `{}` |
-| `env` | string map | `{}` |
-| `skip_patterns` | string[] | `[]` |
-| `on_failure` | `error` or `warn` | `error` |
-| `ai_suggestions` | boolean | `false` |
-| `leaderboard.enabled` | boolean | `false` |
+| Field                 | Type                 | Default         |
+| --------------------- | -------------------- | --------------- |
+| `version`             | literal `1`          | `1`             |
+| `files`               | string[]             | `["README.md"]` |
+| `languages`           | supported language[] | all supported   |
+| `timeout`             | integer 1-300        | `10`            |
+| `setup`               | language-command map | `{}`            |
+| `env`                 | string map           | `{}`            |
+| `skip_patterns`       | string[]             | `[]`            |
+| `on_failure`          | `error` or `warn`    | `error`         |
+| `ai_suggestions`      | boolean              | `false`         |
+| `leaderboard.enabled` | boolean              | `false`         |
 
 ## GitHub Action Schema
 
@@ -231,7 +241,7 @@ CREATE TABLE runs (
 
 ## AI Prompt Template
 
-~~~text
+````text
 You are a code documentation assistant helping fix a broken README code example.
 
 A README code block has failed execution. Your job is to suggest a minimal,
@@ -272,7 +282,7 @@ FIXED_CODE:
 <corrected code here>
 ```
 NOTE: <optional one-line note about requirements, or empty>
-~~~
+````
 
 ## JSON Output
 

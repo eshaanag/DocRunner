@@ -3,9 +3,10 @@
 .env.local
 .env*.local
 
-# Private docs
+# Private build context
 PROGRESS.md
 CHECKPOINT.md
+DOCRUNNER_MASTER_PROMPT.md
 
 # Dependencies and build output
 node_modules/

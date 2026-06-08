@@ -1,58 +1,50 @@
 import type { Command } from "commander";
-import { ConfigLoadError, loadConfig } from "../config/index.js";
+import { loadConfig } from "../config/index.js";
+import { logger } from "../lib/logger.js";
 
-export interface RunCommandOptions {
+interface RunOptions {
   config?: string;
 }
 
 /**
- * Registers the local run command.
- * @param program Commander program instance to extend.
+ * Registers the local exploratory run command.
+ * @param program Commander program receiving the command.
  * @returns Nothing.
  */
 export function registerRunCommand(program: Command): void {
   program
     .command("run")
-    .argument("[file]", "Markdown file to check")
-    .option("-c, --config <path>", "Path to docrunner.yml")
-    .description("Run README code checks locally and exit 0")
-    .action(async (file: string | undefined, options: RunCommandOptions) => {
-      try {
-        const config = await loadConfig({
-          cwd: process.cwd(),
-          configPath: options.config,
-        });
-        const files = file === undefined ? config.files : [file];
-        process.stdout.write(
-          `DocRunner config valid. Files selected: ${files.join(", ")}.\n`,
-        );
-        process.stdout.write(
-          "Parser and execution runner are scheduled for the next phases.\n",
-        );
-      } catch (error) {
-        handleCommandError(error);
-      }
-    });
+    .argument("[file]", "markdown file to check")
+    .option("-c, --config <path>", "path to docrunner.yml")
+    .description(
+      "Run README checks locally and always exit zero for snippet failures.",
+    )
+    .action(handleRun);
 }
 
 /**
- * Writes command errors and sets a failing exit code.
- * @param error Unknown error thrown during command execution.
- * @returns Nothing.
+ * Validates run command configuration before parser integration.
+ * @param file Optional markdown file override.
+ * @param options Run command options.
+ * @returns Promise that settles after validation and reporting.
  */
-function handleCommandError(error: unknown): void {
-  if (error instanceof ConfigLoadError) {
-    process.stderr.write(`${error.message}\n`);
+async function handleRun(
+  file: string | undefined,
+  options: RunOptions,
+): Promise<void> {
+  try {
+    const config = await loadConfig({
+      cwd: process.cwd(),
+      configPath: options.config,
+    });
+    logger.info("DocRunner run command is ready for parser integration.", {
+      file: file ?? null,
+      configuredFiles: config.files.length,
+    });
+  } catch (error) {
+    logger.error("Unable to start DocRunner run.", {
+      error: error instanceof Error ? error.message : "unknown error",
+    });
     process.exitCode = 1;
-    return;
   }
-
-  if (error instanceof Error) {
-    process.stderr.write(`Unexpected run command error: ${error.message}\n`);
-    process.exitCode = 1;
-    return;
-  }
-
-  process.stderr.write("Unexpected run command error.\n");
-  process.exitCode = 1;
 }

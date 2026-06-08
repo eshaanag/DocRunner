@@ -2,23 +2,11 @@
   "name": "@docrunner/dashboard",
   "version": "0.1.0",
   "private": true,
-  "description": "Public DocRunner verified docs leaderboard.",
+  "description": "Public verified-docs leaderboard for DocRunner.",
   "type": "module",
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
-    "test:e2e": "playwright test"
-  },
-  "dependencies": {
-    "next": "^14.2.8",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "@playwright/test": "^1.47.2",
-    "@types/node": "^22.5.4",
-    "@types/react": "^18.3.5",
-    "typescript": "^5.5.4"
+    "build": "echo \"dashboard build pending Phase 6\"",
+    "lint": "echo \"dashboard lint pending Phase 6\"",
+    "test": "echo \"dashboard tests pending Phase 6\""
   }
 }

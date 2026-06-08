@@ -35,13 +35,13 @@ For each supported block, apply the first matching rule and preserve that reason
 
 Examples:
 
-| Example | Classification | Reason |
-|---|---|---|
-| `client = Client("YOUR_API_KEY")` | skipped | placeholder `YOUR_API_KEY` |
-| `$ npm install` and `$ npm test` | skipped | shell transcript |
-| `curl https://example.test/health` | executable | valid Bash command |
-| `https://example.test/docs` | skipped | URL-only block |
-| Explicit skip before a runnable block | skipped | manual directive |
+| Example                               | Classification | Reason                     |
+| ------------------------------------- | -------------- | -------------------------- |
+| `client = Client("YOUR_API_KEY")`     | skipped        | placeholder `YOUR_API_KEY` |
+| `$ npm install` and `$ npm test`      | skipped        | shell transcript           |
+| `curl https://example.test/health`    | executable     | valid Bash command         |
+| `https://example.test/docs`           | skipped        | URL-only block             |
+| Explicit skip before a runnable block | skipped        | manual directive           |
 
 ## Setup Pairing Flow
 

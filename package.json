@@ -9,10 +9,10 @@
     "packages/dashboard"
   ],
   "scripts": {
-    "build": "npm run build --workspace @docrunner/cli",
-    "lint": "npm run lint --workspace @docrunner/cli",
-    "test": "npm run test --workspace @docrunner/cli",
-    "format:check": "npm run format:check --workspace @docrunner/cli"
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "prettier": "^3.3.3"

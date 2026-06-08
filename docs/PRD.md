@@ -87,14 +87,14 @@ that examples execute.
 
 ## Success Metrics
 
-| Metric | 30-day target | 90-day target |
-|---|---:|---:|
-| Repositories running DocRunner | 50 | 250 |
-| Repositories displaying badge | 20 | 100 |
-| GitHub stars | 300 | 1,000 |
-| Median first-run setup time | under 3 minutes | under 2 minutes |
-| False-positive rate in measured real READMEs | below 15% | below 10% |
-| PR comments with actionable location | 100% | 100% |
+| Metric                                       |   30-day target |   90-day target |
+| -------------------------------------------- | --------------: | --------------: |
+| Repositories running DocRunner               |              50 |             250 |
+| Repositories displaying badge                |              20 |             100 |
+| GitHub stars                                 |             300 |           1,000 |
+| Median first-run setup time                  | under 3 minutes | under 2 minutes |
+| False-positive rate in measured real READMEs |       below 15% |       below 10% |
+| PR comments with actionable location         |            100% |            100% |
 
 ## Non-Goals
 

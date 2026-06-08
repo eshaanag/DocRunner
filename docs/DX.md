@@ -47,28 +47,28 @@ States:
 
 ## Commands
 
-| Command | Exit behavior | Purpose |
-|---|---|---|
-| `docrunner run [file]` | Always exits 0 unless DocRunner itself cannot run | Local exploration |
-| `docrunner check [file]` | Exits 1 on fail/timeout/error unless warn mode | CI |
-| `docrunner init` | Exits 0 when config created, error when overwrite refused | First setup |
-| `docrunner list [file]` | Exits 0 after detection preview | Debug false positives |
-| `docrunner suggest <file:line>` | Exits 0 on suggestion, error on missing key/block | Targeted AI fix |
-| `docrunner --help` | Exits 0 | Command reference |
+| Command                         | Exit behavior                                             | Purpose               |
+| ------------------------------- | --------------------------------------------------------- | --------------------- |
+| `docrunner run [file]`          | Always exits 0 unless DocRunner itself cannot run         | Local exploration     |
+| `docrunner check [file]`        | Exits 1 on fail/timeout/error unless warn mode            | CI                    |
+| `docrunner init`                | Exits 0 when config created, error when overwrite refused | First setup           |
+| `docrunner list [file]`         | Exits 0 after detection preview                           | Debug false positives |
+| `docrunner suggest <file:line>` | Exits 0 on suggestion, error on missing key/block         | Targeted AI fix       |
+| `docrunner --help`              | Exits 0                                                   | Command reference     |
 
 ## PR Comment Format
 
 The PR comment is a code review artifact and a screenshot surface.
 
-~~~markdown
+````markdown
 ## 🔍 DocRunner Results
 
-| Status | Section | Language | Line |
-|--------|---------|----------|------|
-| ✅ Pass | Installation | `bash` | 8 |
-| ✅ Pass | Authentication | `javascript` | 41 |
-| ❌ Fail | Quick Start | `python` | 23 |
-| ⏭️ Skip | Advanced Config | `python` | 67 |
+| Status  | Section         | Language     | Line |
+| ------- | --------------- | ------------ | ---- |
+| ✅ Pass | Installation    | `bash`       | 8    |
+| ✅ Pass | Authentication  | `javascript` | 41   |
+| ❌ Fail | Quick Start     | `python`     | 23   |
+| ⏭️ Skip | Advanced Config | `python`     | 67   |
 
 **2 passed · 1 failed · 1 skipped**
 
@@ -93,8 +93,9 @@ print(response)
 ```
 
 ---
+
 <sub>Powered by [DocRunner](https://docrunner.dev) · [Add badge](https://docrunner.dev/badge) · [View leaderboard](https://docrunner.dev)</sub>
-~~~
+````
 
 If AI is unavailable, the failed section remains and includes: "AI suggestions unavailable;
 add `ANTHROPIC_API_KEY` to use this feature."
@@ -154,18 +155,18 @@ No code snippets, errors, file names, or branch names appear on public pages.
 
 ## Error Message Catalog
 
-| Situation | Message |
-|---|---|
-| Missing config | `No docrunner.yml found; using defaults for README.md.` |
-| Malformed config | `Invalid docrunner.yml: timeout must be an integer from 1 to 300 seconds.` |
-| No files | `No markdown files matched: README.md, docs/**/*.md.` |
-| No blocks | `No supported code blocks found. Use docrunner list --all to inspect ignored languages.` |
-| All skipped | `0 blocks executed. Your README may have no executable examples or all were auto-skipped. Run with --verbose to see why.` |
-| Runtime failure | `Python block at README.md:23 ("Quick Start") raised NameError: name 'client' is not defined.` |
-| Timeout | `Python block at README.md:23 ("Quick Start") timed out after 10s. Increase timeout or skip service-dependent examples.` |
-| Missing ts-node | `TypeScript blocks require ts-node. Add it to setup: npm install -g ts-node typescript.` |
-| Claude missing | `AI suggestions unavailable: ANTHROPIC_API_KEY is not set.` |
-| Rate limit | `GitHub comment update was rate limited; results are printed below and will be retried when possible.` |
+| Situation        | Message                                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Missing config   | `No docrunner.yml found; using defaults for README.md.`                                                                   |
+| Malformed config | `Invalid docrunner.yml: timeout must be an integer from 1 to 300 seconds.`                                                |
+| No files         | `No markdown files matched: README.md, docs/**/*.md.`                                                                     |
+| No blocks        | `No supported code blocks found. Use docrunner list --all to inspect ignored languages.`                                  |
+| All skipped      | `0 blocks executed. Your README may have no executable examples or all were auto-skipped. Run with --verbose to see why.` |
+| Runtime failure  | `Python block at README.md:23 ("Quick Start") raised NameError: name 'client' is not defined.`                            |
+| Timeout          | `Python block at README.md:23 ("Quick Start") timed out after 10s. Increase timeout or skip service-dependent examples.`  |
+| Missing ts-node  | `TypeScript blocks require ts-node. Add it to setup: npm install -g ts-node typescript.`                                  |
+| Claude missing   | `AI suggestions unavailable: ANTHROPIC_API_KEY is not set.`                                                               |
+| Rate limit       | `GitHub comment update was rate limited; results are printed below and will be retried when possible.`                    |
 
 ## Onboarding Timeline
 

@@ -1,22 +1,20 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { loadConfig, ConfigLoadError } from "../src/config/index.js";
+import { ConfigLoadError, loadConfig } from "../src/config/index.js";
 
 /**
- * Creates a temporary directory for config tests.
- * @param name Directory suffix for easier debugging.
- * @returns Absolute temporary directory path.
+ * Creates an isolated temporary directory for a config test.
+ * @returns Absolute path to the temporary directory.
  */
-async function makeTempDir(name: string): Promise<string> {
-  const dir = join(process.cwd(), "tests", ".tmp", name);
-  await mkdir(dir, { recursive: true });
-  return dir;
+async function makeTempDir(): Promise<string> {
+  return mkdtemp(join(tmpdir(), "docrunner-config-"));
 }
 
 describe("loadConfig", () => {
-  test("returns defaults when docrunner.yml is missing", async () => {
-    const cwd = await makeTempDir("missing-config");
+  test("returns defaults when the default config is missing", async () => {
+    const cwd = await makeTempDir();
     const config = await loadConfig({ cwd });
 
     expect(config.files).toEqual(["README.md"]);
@@ -25,8 +23,8 @@ describe("loadConfig", () => {
     expect(config.ai_suggestions).toBe(false);
   });
 
-  test("loads a valid config file", async () => {
-    const cwd = await makeTempDir("valid-config");
+  test("loads a valid config and applies optional values", async () => {
+    const cwd = await makeTempDir();
     await writeFile(
       join(cwd, "docrunner.yml"),
       [
@@ -53,15 +51,33 @@ describe("loadConfig", () => {
     expect(config.ai_suggestions).toBe(true);
   });
 
-  test("throws a helpful error for malformed config values", async () => {
-    const cwd = await makeTempDir("invalid-config");
+  test("rejects unknown keys and invalid field values", async () => {
+    const cwd = await makeTempDir();
     await writeFile(
       join(cwd, "docrunner.yml"),
-      ["version: 1", "timeout: ten"].join("\n"),
+      ["version: 1", "timeout: 0", "mystery: true"].join("\n"),
       "utf8",
     );
 
     await expect(loadConfig({ cwd })).rejects.toThrow(ConfigLoadError);
     await expect(loadConfig({ cwd })).rejects.toThrow("timeout");
+    await expect(loadConfig({ cwd })).rejects.toThrow("Unrecognized key");
+  });
+
+  test("reports malformed YAML with its config path", async () => {
+    const cwd = await makeTempDir();
+    await writeFile(join(cwd, "custom.yml"), "files: [README.md", "utf8");
+
+    await expect(loadConfig({ cwd, configPath: "custom.yml" })).rejects.toThrow(
+      "Unable to parse custom.yml as YAML",
+    );
+  });
+
+  test("reports a missing explicit config instead of silently using defaults", async () => {
+    const cwd = await makeTempDir();
+
+    await expect(
+      loadConfig({ cwd, configPath: "missing.yml" }),
+    ).rejects.toThrow("Unable to read missing.yml");
   });
 });

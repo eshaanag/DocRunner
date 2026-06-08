@@ -13,7 +13,7 @@ DocRunner has four deployable surfaces:
 - Python runner module: typed subprocess helpers and validation models for future deeper
   language execution isolation.
 
-~~~text
+```text
 Markdown files + docrunner.yml
         |
         v
@@ -33,7 +33,7 @@ ExecutionResult[] -> console/json/GitHub reporters
         |
         +--> Claude fix suggestions for eligible failures
         +--> aggregate leaderboard payload
-~~~
+```
 
 ## Parser
 
@@ -58,12 +58,12 @@ For each markdown file:
 
 Language aliases:
 
-| Input | Normalized |
-|---|---|
-| `python`, `python3`, `py` | `python` |
+| Input                      | Normalized   |
+| -------------------------- | ------------ |
+| `python`, `python3`, `py`  | `python`     |
 | `javascript`, `js`, `node` | `javascript` |
-| `typescript`, `ts` | `typescript` |
-| `bash`, `sh`, `shell` | `bash` |
+| `typescript`, `ts`         | `typescript` |
+| `bash`, `sh`, `shell`      | `bash`       |
 
 ## Skip System
 
@@ -111,22 +111,22 @@ Timeout:
 
 Language behavior:
 
-| Language | File | Command | Notes |
-|---|---|---|---|
-| Python | `script.py` | `python3 script.py` | Missing runtime is `error`. |
-| JavaScript | `script.js` or `script.mjs` | `node script.*` | Use `.mjs` for import/export syntax. |
-| Bash | `script.sh` | `bash -e script.sh` | Fail fast on command errors. |
-| TypeScript | `script.ts` | `ts-node --transpile-only script.ts` | Missing ts-node explains install command. |
+| Language   | File                        | Command                              | Notes                                     |
+| ---------- | --------------------------- | ------------------------------------ | ----------------------------------------- |
+| Python     | `script.py`                 | `python3 script.py`                  | Missing runtime is `error`.               |
+| JavaScript | `script.js` or `script.mjs` | `node script.*`                      | Use `.mjs` for import/export syntax.      |
+| Bash       | `script.sh`                 | `bash -e script.sh`                  | Fail fast on command errors.              |
+| TypeScript | `script.ts`                 | `ts-node --transpile-only script.ts` | Missing ts-node explains install command. |
 
 ## Result Scoring Algorithm
 
-| Status | Meaning | Blocks CI? |
-|---|---|---|
-| `pass` | Process exited 0 | No |
-| `fail` | Process exited non-zero | Yes unless `on_failure: warn` |
-| `timeout` | Process exceeded timeout and was killed | Yes unless `on_failure: warn` |
-| `error` | DocRunner could not start/manage execution | Yes unless `on_failure: warn` |
-| `skipped` | Manual or heuristic skip | No |
+| Status    | Meaning                                    | Blocks CI?                    |
+| --------- | ------------------------------------------ | ----------------------------- |
+| `pass`    | Process exited 0                           | No                            |
+| `fail`    | Process exited non-zero                    | Yes unless `on_failure: warn` |
+| `timeout` | Process exceeded timeout and was killed    | Yes unless `on_failure: warn` |
+| `error`   | DocRunner could not start/manage execution | Yes unless `on_failure: warn` |
+| `skipped` | Manual or heuristic skip                   | No                            |
 
 All results include duration, stdout, stderr, exit code where available, skip reason, and
 error message where applicable. Setup blocks are not reported as standalone test results.
@@ -151,7 +151,7 @@ Trigger only for `fail` when `ai_suggestions: true`, `ANTHROPIC_API_KEY` exists,
 failure hash misses cache. The request includes only the failing block, bounded stderr, and
 bounded surrounding README context.
 
-~~~text
+````text
 You are a code documentation assistant helping fix a broken README code example.
 
 A README code block has failed execution. Your job is to suggest a minimal,
@@ -192,7 +192,7 @@ FIXED_CODE:
 <corrected code here>
 ```
 NOTE: <optional one-line note about requirements, or empty>
-~~~
+````
 
 Automated tests always use mocks and never call Claude.
 

@@ -1,23 +1,19 @@
-name: "DocRunner"
-description: "Run README code snippets and report broken examples in pull requests."
+name: DocRunner
+description: Test README code examples and optionally post pull request comments.
 inputs:
   github-token:
-    description: "GitHub token used to post or update PR comments."
+    description: Token used to create or update a pull request comment.
     required: false
   anthropic-api-key:
-    description: "Anthropic API key used for optional AI fix suggestions."
+    description: Optional Claude API key for fix suggestions.
     required: false
   config:
-    description: "Path to docrunner.yml."
+    description: Path to docrunner.yml.
     required: false
-    default: "docrunner.yml"
-  files:
-    description: "Optional markdown file or glob override."
-    required: false
-  leaderboard:
-    description: "Whether to publish aggregate results to the leaderboard."
-    required: false
-    default: "false"
+    default: docrunner.yml
+outputs:
+  summary:
+    description: Human-readable result summary.
 runs:
-  using: "docker"
-  image: "Dockerfile"
+  using: docker
+  image: Dockerfile
