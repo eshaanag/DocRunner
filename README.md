@@ -48,6 +48,7 @@ Markdown files -> parser -> skip detector -> isolated runners -> reporters
 | GitHub Action                                    | ✅ Complete |
 | Public verified-docs leaderboard                 | ✅ Complete |
 | CLI init, list, check, run, and suggest commands | ✅ Complete |
+| Dogfooding workflow and public README analysis   | ✅ Complete |
 
 ## 60-Second Demo
 
@@ -114,3 +115,9 @@ minimal corrected code block. Automated tests use mocks and never call the API.
 The public leaderboard at `https://docrunner.dev` is opt-in and stores aggregate counts
 only: repository name, stars, pass/fail/skip counts, pass rate, badge color, and last run
 time. It never stores code, output, errors, file names, branch names, or private repo data.
+
+## README Analysis
+
+The launch dataset lives in [docs/ANALYSIS.md](docs/ANALYSIS.md). It is a raw
+zero-config run against public README files and is documented with methodology caveats so
+the results are useful without overstating missing dependency setup as broken docs.
