@@ -1,0 +1,30 @@
+# Environment
+.env
+.env.local
+.env*.local
+
+# Private docs
+PROGRESS.md
+CHECKPOINT.md
+
+# Dependencies and build output
+node_modules/
+__pycache__/
+*.pyc
+.next/
+dist/
+out/
+
+# Test artifacts
+/coverage/
+/playwright-report/
+/test-results/
+**/.tmp/
+
+# Analysis data
+/scripts/cache/
+/docs/ANALYSIS_RAW.md
+
+# OS
+.DS_Store
+Thumbs.db

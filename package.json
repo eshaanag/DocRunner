@@ -1,0 +1,20 @@
+{
+  "name": "docrunner-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DocRunner monorepo for CLI, GitHub Action, and verified docs leaderboard.",
+  "type": "module",
+  "workspaces": [
+    "packages/cli",
+    "packages/dashboard"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @docrunner/cli",
+    "lint": "npm run lint --workspace @docrunner/cli",
+    "test": "npm run test --workspace @docrunner/cli",
+    "format:check": "npm run format:check --workspace @docrunner/cli"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}
