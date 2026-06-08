@@ -41,7 +41,7 @@ Markdown files -> parser -> skip detector -> isolated runners -> reporters
 | Project structure and config validation          | ✅ Complete |
 | Markdown parser and skip detector                | ✅ Complete |
 | Python, JavaScript, TypeScript, and Bash runners | ✅ Complete |
-| Console, JSON, and GitHub reporters              | 📋 Planned  |
+| Console, JSON, and GitHub reporters              | ✅ Complete |
 | Claude fix suggestions                           | 📋 Planned  |
 | GitHub Action                                    | 📋 Planned  |
 | Public verified-docs leaderboard                 | 📋 Planned  |
