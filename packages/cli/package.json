@@ -1,11 +1,14 @@
 {
-  "name": "docrunner",
+  "name": "@eshaanag/docrunner",
   "version": "0.1.0",
   "description": "CLI that validates and runs README code snippets.",
   "type": "module",
   "bin": {
     "docrunner": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "tsc -p tsconfig.json --noEmit",

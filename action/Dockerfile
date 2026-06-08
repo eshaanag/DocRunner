@@ -12,7 +12,7 @@ COPY packages/dashboard/package.json packages/dashboard/package.json
 RUN npm ci
 
 COPY packages/cli packages/cli
-RUN npm run build --workspace docrunner \
+RUN npm run build --workspace @eshaanag/docrunner \
   && npm install --global ./packages/cli
 
 COPY action/entrypoint.sh /entrypoint.sh

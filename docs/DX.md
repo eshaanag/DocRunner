@@ -8,7 +8,7 @@ README examples are contextual, not to make the common path work.
 
 Principles:
 
-- Zero friction to try: `npm install -g docrunner`, then `docrunner run`.
+- Zero friction to try: `npm install -g @eshaanag/docrunner`, then `docrunner run`.
 - Low friction to configure: `docrunner init` generates sensible defaults.
 - High value immediately: exact section, line, language, stderr, and next action.
 - No surprise execution: `docrunner list` previews every block and skip reason.

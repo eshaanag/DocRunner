@@ -68,7 +68,7 @@ logs, guessing which block failed, or asking a contributor for reproduction step
 ## Installation
 
 ```bash
-npm install -g docrunner
+npm install -g @eshaanag/docrunner
 docrunner run
 ```
 

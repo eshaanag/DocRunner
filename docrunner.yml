@@ -16,7 +16,7 @@ setup: {}
 env: {}
 
 skip_patterns:
-  - "npm install -g docrunner"
+  - "npm install -g @eshaanag/docrunner"
 
 on_failure: error
 
