@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { Command } from "commander";
 import { registerCheckCommand } from "./commands/check.js";
@@ -37,10 +38,23 @@ export async function main(argv: string[]): Promise<void> {
   }
 }
 
-const entrypoint = process.argv[1];
-if (
-  entrypoint !== undefined &&
-  import.meta.url === pathToFileURL(entrypoint).href
-) {
+if (isEntrypoint(process.argv[1])) {
   await main(process.argv);
+}
+
+/**
+ * Checks whether this module is the invoked executable, including npm bin symlinks.
+ * @param entrypoint Process entrypoint path.
+ * @returns True when the CLI should run immediately.
+ */
+export function isEntrypoint(entrypoint: string | undefined): boolean {
+  if (entrypoint === undefined) {
+    return false;
+  }
+
+  try {
+    return import.meta.url === pathToFileURL(realpathSync(entrypoint)).href;
+  } catch {
+    return import.meta.url === pathToFileURL(entrypoint).href;
+  }
 }

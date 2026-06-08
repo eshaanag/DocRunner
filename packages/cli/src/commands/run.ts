@@ -1,9 +1,12 @@
 import type { Command } from "commander";
-import { loadConfig } from "../config/index.js";
+import { executeDocRunner } from "../core/run.js";
 import { logger } from "../lib/logger.js";
+import { formatConsoleReport } from "../reporter/console.js";
+import { stringifyJsonReport } from "../reporter/json.js";
 
 interface RunOptions {
   config?: string;
+  json?: boolean;
 }
 
 /**
@@ -16,6 +19,7 @@ export function registerRunCommand(program: Command): void {
     .command("run")
     .argument("[file]", "markdown file to check")
     .option("-c, --config <path>", "path to docrunner.yml")
+    .option("--json", "print machine-readable JSON")
     .description(
       "Run README checks locally and always exit zero for snippet failures.",
     )
@@ -33,14 +37,20 @@ async function handleRun(
   options: RunOptions,
 ): Promise<void> {
   try {
-    const config = await loadConfig({
+    const run = await executeDocRunner({
       cwd: process.cwd(),
+      file,
       configPath: options.config,
+      aiApiKey: process.env.ANTHROPIC_API_KEY,
     });
-    logger.info("DocRunner run command is ready for parser integration.", {
-      file: file ?? null,
-      configuredFiles: config.files.length,
-    });
+    const output =
+      options.json === true
+        ? stringifyJsonReport(run.blocks, run.results, run.suggestions)
+        : formatConsoleReport(run.blocks, run.results, {
+            version: "0.1.0",
+            color: process.stdout.isTTY,
+          });
+    process.stdout.write(`${output}\n`);
   } catch (error) {
     logger.error("Unable to start DocRunner run.", {
       error: error instanceof Error ? error.message : "unknown error",
