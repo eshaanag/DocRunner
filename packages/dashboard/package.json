@@ -5,8 +5,24 @@
   "description": "Public verified-docs leaderboard for DocRunner.",
   "type": "module",
   "scripts": {
-    "build": "echo \"dashboard build pending Phase 6\"",
-    "lint": "echo \"dashboard lint pending Phase 6\"",
-    "test": "echo \"dashboard tests pending Phase 6\""
+    "dev": "next dev",
+    "build": "next build",
+    "lint": "tsc --noEmit",
+    "test": "playwright test"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "next": "^16.2.7",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.19.20",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.3"
   }
 }
