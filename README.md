@@ -42,7 +42,7 @@ Markdown files -> parser -> skip detector -> isolated runners -> reporters
 | Markdown parser and skip detector                | ✅ Complete |
 | Python, JavaScript, TypeScript, and Bash runners | ✅ Complete |
 | Console, JSON, and GitHub reporters              | ✅ Complete |
-| Claude fix suggestions                           | 📋 Planned  |
+| Claude fix suggestions                           | ✅ Complete |
 | GitHub Action                                    | 📋 Planned  |
 | Public verified-docs leaderboard                 | 📋 Planned  |
 
