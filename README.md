@@ -44,7 +44,7 @@ Markdown files -> parser -> skip detector -> isolated runners -> reporters
 | Console, JSON, and GitHub reporters              | ✅ Complete |
 | Claude fix suggestions                           | ✅ Complete |
 | GitHub Action                                    | ✅ Complete |
-| Public verified-docs leaderboard                 | 📋 Planned  |
+| Public verified-docs leaderboard                 | ✅ Complete |
 
 ## 60-Second Demo
 

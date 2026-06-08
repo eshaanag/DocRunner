@@ -15,11 +15,14 @@ __pycache__/
 .next/
 dist/
 out/
+*.tsbuildinfo
 
 # Test artifacts
 /coverage/
 /playwright-report/
 /test-results/
+**/playwright-report/
+**/test-results/
 **/.tmp/
 
 # Analysis data
