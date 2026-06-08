@@ -11,9 +11,14 @@ inputs:
     description: Path to docrunner.yml.
     required: false
     default: docrunner.yml
+  leaderboard-secret:
+    description: Optional secret for opt-in leaderboard writes.
+    required: false
 outputs:
   summary:
     description: Human-readable result summary.
+  json:
+    description: Machine-readable DocRunner results.
 runs:
   using: docker
   image: Dockerfile

@@ -43,7 +43,7 @@ Markdown files -> parser -> skip detector -> isolated runners -> reporters
 | Python, JavaScript, TypeScript, and Bash runners | ✅ Complete |
 | Console, JSON, and GitHub reporters              | ✅ Complete |
 | Claude fix suggestions                           | ✅ Complete |
-| GitHub Action                                    | 📋 Planned  |
+| GitHub Action                                    | ✅ Complete |
 | Public verified-docs leaderboard                 | 📋 Planned  |
 
 ## 60-Second Demo
