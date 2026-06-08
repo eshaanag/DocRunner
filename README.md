@@ -45,6 +45,7 @@ Markdown files -> parser -> skip detector -> isolated runners -> reporters
 | Claude fix suggestions                           | ✅ Complete |
 | GitHub Action                                    | ✅ Complete |
 | Public verified-docs leaderboard                 | ✅ Complete |
+| CLI init, list, check, run, and suggest commands | ✅ Complete |
 
 ## 60-Second Demo
 
@@ -67,6 +68,16 @@ logs, guessing which block failed, or asking a contributor for reproduction step
 npm install -g docrunner
 docrunner run
 ```
+
+## CLI Commands
+
+| Command                         | Purpose                                        |
+| ------------------------------- | ---------------------------------------------- |
+| `docrunner init`                | Scan markdown files and create `docrunner.yml` |
+| `docrunner list [file]`         | Preview detected blocks and skip reasons       |
+| `docrunner run [file]`          | Run checks locally and always exit zero        |
+| `docrunner check [file]`        | Run checks in CI and exit non-zero on failure  |
+| `docrunner suggest <file:line>` | Request an AI fix for one failing block        |
 
 ## GitHub Action Setup
 

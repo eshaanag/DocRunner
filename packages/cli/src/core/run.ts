@@ -27,6 +27,13 @@ export interface DocRunnerRun {
   files: string[];
 }
 
+export interface DocRunnerDiscovery {
+  config: DocRunnerConfig;
+  blocks: ParsedBlock[];
+  files: string[];
+  fileContents: Map<string, string>;
+}
+
 /**
  * Runs config loading, parsing, execution, and optional AI suggestions.
  * @param options Working directory and command overrides.
@@ -35,18 +42,8 @@ export interface DocRunnerRun {
 export async function executeDocRunner(
   options: ExecuteDocRunnerOptions,
 ): Promise<DocRunnerRun> {
-  const config = await loadConfig({
-    cwd: options.cwd,
-    configPath: options.configPath,
-  });
-  const files = await resolveMarkdownFiles(
-    options.cwd,
-    options.file ?? config.files,
-  );
-  const fileContents = await readMarkdownFiles(options.cwd, files);
-  const blocks = [...fileContents.entries()].flatMap(([file, markdown]) =>
-    parseMarkdown(markdown, { file, skipPatterns: config.skip_patterns }),
-  );
+  const { config, files, fileContents, blocks } =
+    await discoverDocRunner(options);
   const selectedBlocks =
     config.languages === undefined
       ? blocks
@@ -61,6 +58,29 @@ export async function executeDocRunner(
   );
 
   return { config, blocks: selectedBlocks, results, suggestions, files };
+}
+
+/**
+ * Discovers supported blocks without executing them.
+ * @param options Working directory and command overrides.
+ * @returns Config, files, contents, and parsed blocks.
+ */
+export async function discoverDocRunner(
+  options: ExecuteDocRunnerOptions,
+): Promise<DocRunnerDiscovery> {
+  const config = await loadConfig({
+    cwd: options.cwd,
+    configPath: options.configPath,
+  });
+  const files = await resolveMarkdownFiles(
+    options.cwd,
+    options.file ?? config.files,
+  );
+  const fileContents = await readMarkdownFiles(options.cwd, files);
+  const blocks = [...fileContents.entries()].flatMap(([file, markdown]) =>
+    parseMarkdown(markdown, { file, skipPatterns: config.skip_patterns }),
+  );
+  return { config, blocks, files, fileContents };
 }
 
 /**

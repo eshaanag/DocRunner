@@ -3,7 +3,10 @@ import { realpathSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { Command } from "commander";
 import { registerCheckCommand } from "./commands/check.js";
+import { registerInitCommand } from "./commands/init.js";
+import { registerListCommand } from "./commands/list.js";
 import { registerRunCommand } from "./commands/run.js";
+import { registerSuggestCommand } from "./commands/suggest.js";
 import { logger } from "./lib/logger.js";
 
 /**
@@ -19,6 +22,9 @@ export function buildProgram(): Command {
 
   registerRunCommand(program);
   registerCheckCommand(program);
+  registerInitCommand(program);
+  registerListCommand(program);
+  registerSuggestCommand(program);
   return program;
 }
 
